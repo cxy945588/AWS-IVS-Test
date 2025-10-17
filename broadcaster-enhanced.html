@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IVS Real-Time - 主播端 (增強版)</title>
+    <script src="https://web-broadcast.live-video.net/1.29.0/amazon-ivs-web-broadcast.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2ecc71;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            background: #34495e;
+            color: white;
+            padding: 8px 15px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+        .layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .control-panel {
+            background: #2c3e50;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ecf0f1;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #34495e;
+            border-radius: 4px;
+            background: #34495e;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-start {
+            background: #2ecc71;
+            color: white;
+        }
+        .btn-start:hover:not(:disabled) {
+            background: #27ae60;
+        }
+        .btn-stop {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-stop:hover:not(:disabled) {
+            background: #c0392b;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .video-container {
+            background: black;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        .status-bar {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #2c3e50;
+        }
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        .status-connected {
+            color: #2ecc71;
+        }
+        .status-disconnected {
+            color: #e74c3c;
+        }
+        .status-warning {
+            color: #f39c12;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .stat-card {
+            background: #2c3e50;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 5px;
+        }
+        .logs {
+            background: #1a1a1a;
+            border: 1px solid #34495e;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-time {
+            color: #95a5a6;
+        }
+        .log-success {
+            color: #2ecc71;
+        }
+        .log-error {
+            color: #e74c3c;
+        }
+        .log-warning {
+            color: #f39c12;
+        }
+        .log-info {
+            color: #3498db;
+        }
+        .quality-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .quality-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #95a5a6;
+        }
+        .quality-excellent { background: #2ecc71; }
+        .quality-good { background: #3498db; }
+        .quality-fair { background: #f39c12; }
+        .quality-poor { background: #e74c3c; }
+        
+        @media (max-width: 1024px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-btn">← 返回首頁</a>
+        
+        <h1>📹 主播端控制台 (增強版)</h1>
+        
+        <div class="layout">
+            <div class="main-content">
+                <div class="control-panel">
+                    <label for="token">Stage Token (Publisher)</label>
+                    <input type="text" id="token" placeholder="請貼上 Publisher Token">
+                    
+                    <div class="button-group">
+                        <button id="join-button" class="btn-start">🎬 開始直播</button>
+                        <button id="leave-button" class="btn-stop" style="display:none;">⏹️ 停止直播</button>
+                    </div>
+                </div>
+                
+                <div class="video-container">
+                    <div id="local-media"></div>
+                    <div class="video-overlay" id="video-stats" style="display:none;">
+                        <div>解析度: <span id="resolution">-</span></div>
+                        <div>幀率: <span id="framerate">-</span> fps</div>
+                        <div>位元率: <span id="bitrate">-</span> kbps</div>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="viewers-count">0</div>
+                        <div class="stat-label">觀看人數</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="packets-sent">0</div>
+                        <div class="stat-label">已發送封包</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="packet-loss">0%</div>
+                        <div class="stat-label">封包遺失率</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="network-rtt">0ms</div>
+                        <div class="stat-label">網路延遲</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="status-bar">
+                    <div class="status-item">
+                        <span>連線狀態</span>
+                        <span id="connectionStatus" class="status-disconnected">未連線</span>
+                    </div>
+                    <div class="status-item">
+                        <span>發布狀態</span>
+                        <span id="publishStatus" class="status-disconnected">未發布</span>
+                    </div>
+                    <div class="status-item">
+                        <span>直播時長</span>
+                        <span id="duration">00:00:00</span>
+                    </div>
+                    <div class="status-item">
+                        <span>網路品質</span>
+                        <div class="quality-indicator">
+                            <div class="quality-dot" id="quality-dot"></div>
+                            <span id="quality-text">未知</span>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <span>Token 狀態</span>
+                        <span id="tokenStatus" class="status-disconnected">未驗證</span>
+                    </div>
+                </div>
+                
+                <div class="logs" id="logs">
+                    <div class="log-info">系統就緒，等待開始直播...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { Stage, LocalStageStream, SubscribeType, StageEvents, ConnectionState, StreamType } = IVSBroadcastClient;
+
+        let joinButton = document.getElementById("join-button");
+        let leaveButton = document.getElementById("leave-button");
+        
+        let stage;
+        let joining = false;
+        let connected = false;
+        let localCamera;
+        let localMic;
+        let cameraStageStream;
+        let micStageStream;
+        let startTime = null;
+        let durationTimer = null;
+        let statsTimer = null;
+        let participantCount = 0;
+        let tokenExpiryTime = null;
+        
+        // 統計數據
+        let stats = {
+            packetsSent: 0,
+            packetLoss: 0,
+            rtt: 0,
+            bitrate: 0
+        };
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString('zh-TW');
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            logsDiv.insertBefore(entry, logsDiv.firstChild);
+            
+            // 保持最多 100 條日誌
+            while (logsDiv.children.length > 100) {
+                logsDiv.removeChild(logsDiv.lastChild);
+            }
+            
+            console.log(`[${type}]`, message);
+        }
+
+        function updateStatus(id, text, className) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = text;
+                el.className = className;
+            }
+        }
+
+        function updateDuration() {
+            if (startTime) {
+                const elapsed = Date.now() - startTime;
+                const h = Math.floor(elapsed / 3600000);
+                const m = Math.floor((elapsed % 3600000) / 60000);
+                const s = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('duration').textContent = 
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+                
+                // 檢查 Token 是否快過期
+                if (tokenExpiryTime && Date.now() > tokenExpiryTime - 300000) { // 5分鐘前警告
+                    updateStatus('tokenStatus', 'Token 即將過期', 'status-warning');
+                    if (Date.now() > tokenExpiryTime - 300000 && Date.now() < tokenExpiryTime - 290000) {
+                        log('⚠️ Token 將在 5 分鐘內過期，請準備重新生成', 'warning');
+                    }
+                }
+            }
+        }
+
+        function updateNetworkQuality() {
+            const rtt = stats.rtt;
+            const packetLoss = stats.packetLoss;
+            
+            let quality, qualityText, qualityClass;
+            
+            if (rtt < 50 && packetLoss < 1) {
+                quality = 'excellent';
+                qualityText = '優秀';
+                qualityClass = 'quality-excellent';
+            } else if (rtt < 100 && packetLoss < 3) {
+                quality = 'good';
+                qualityText = '良好';
+                qualityClass = 'quality-good';
+            } else if (rtt < 200 && packetLoss < 5) {
+                quality = 'fair';
+                qualityText = '一般';
+                qualityClass = 'quality-fair';
+            } else {
+                quality = 'poor';
+                qualityText = '差';
+                qualityClass = 'quality-poor';
+            }
+            
+            const dot = document.getElementById('quality-dot');
+            dot.className = `quality-dot ${qualityClass}`;
+            document.getElementById('quality-text').textContent = qualityText;
+        }
+
+        function updateStats() {
+            // 更新統計顯示
+            document.getElementById('viewers-count').textContent = participantCount;
+            document.getElementById('packets-sent').textContent = stats.packetsSent.toLocaleString();
+            document.getElementById('packet-loss').textContent = stats.packetLoss.toFixed(1) + '%';
+            document.getElementById('network-rtt').textContent = stats.rtt + 'ms';
+            
+            updateNetworkQuality();
+        }
+
+        function simulateStats() {
+            // 模擬統計數據（實際應該從 Stage 獲取）
+            stats.packetsSent += Math.floor(Math.random() * 100) + 50;
+            stats.packetLoss = Math.random() * 2;
+            stats.rtt = Math.floor(Math.random() * 50) + 20;
+            stats.bitrate = Math.floor(Math.random() * 500) + 2000;
+            
+            updateStats();
+        }
+
+        async function getCamera() {
+            try {
+                return await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: false
+                });
+            } catch (err) {
+                log(`❌ 無法獲取攝像頭: ${err.message}`, 'error');
+                throw err;
+            }
+        }
+
+        async function getMic() {
+            try {
+                return await navigator.mediaDevices.getUserMedia({
+                    video: false,
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+            } catch (err) {
+                log(`❌ 無法獲取麥克風: ${err.message}`, 'error');
+                throw err;
+            }
+        }
+
+        function setupParticipant({ isLocal, id }) {
+            const groupId = "local-media";
+            const groupContainer = document.getElementById(groupId);
+            groupContainer.innerHTML = '';
+            
+            const videoEl = document.createElement("video");
+            videoEl.id = isLocal ? "local" : id;
+            videoEl.autoplay = true;
+            videoEl.muted = isLocal;
+            videoEl.playsInline = true;
+            videoEl.srcObject = new MediaStream();
+            videoEl.style.width = '100%';
+            videoEl.style.height = '100%';
+            
+            groupContainer.appendChild(videoEl);
+            
+            // 顯示視頻統計
+            document.getElementById('video-stats').style.display = 'block';
+            
+            // 監聽視頻載入
+            videoEl.addEventListener('loadedmetadata', () => {
+                const resolution = `${videoEl.videoWidth}x${videoEl.videoHeight}`;
+                document.getElementById('resolution').textContent = resolution;
+                log(`✓ 視頻解析度: ${resolution}`, 'success');
+            });
+            
+            return videoEl;
+        }
+
+        const joinStage = async () => {
+            if (connected || joining) {
+                return;
+            }
+            
+            joining = true;
+            joinButton.disabled = true;
+            log('🚀 開始連接...', 'info');
+            
+            const token = document.getElementById("token").value.trim();
+            if (!token) {
+                alert("請輸入 Token");
+                joining = false;
+                joinButton.disabled = false;
+                return;
+            }
+
+            try {
+                // 解析 Token (JWT) 獲取過期時間
+                try {
+                    const tokenParts = token.split('.');
+                    if (tokenParts.length === 3) {
+                        const payload = JSON.parse(atob(tokenParts[1]));
+                        if (payload.exp) {
+                            tokenExpiryTime = payload.exp * 1000;
+                            const expiryDate = new Date(tokenExpiryTime);
+                            log(`✓ Token 有效期至: ${expiryDate.toLocaleString('zh-TW')}`, 'info');
+                            updateStatus('tokenStatus', '已驗證', 'status-connected');
+                        }
+                    }
+                } catch (e) {
+                    log('⚠️ 無法解析 Token 過期時間', 'warning');
+                }
+
+                // Get media
+                log('📷 請求媒體權限...', 'info');
+                localCamera = await getCamera();
+                localMic = await getMic();
+                log('✓ 已獲得攝像頭和麥克風權限', 'success');
+
+                // Create StageStreams
+                cameraStageStream = new LocalStageStream(localCamera.getVideoTracks()[0]);
+                micStageStream = new LocalStageStream(localMic.getAudioTracks()[0]);
+                log('✓ 已建立 LocalStageStream', 'success');
+
+                // Define strategy
+                const strategy = {
+                    stageStreamsToPublish() {
+                        return [cameraStageStream, micStageStream];
+                    },
+                    shouldPublishParticipant(participant) {
+                        return true;
+                    },
+                    shouldSubscribeToParticipant(participant) {
+                        return SubscribeType.AUDIO_VIDEO;
+                    }
+                };
+
+                // Create stage
+                stage = new Stage(token, strategy);
+                log('✓ 已建立 Stage 實例', 'success');
+
+                // Setup event listeners
+                stage.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
+                    log(`📡 連線狀態: ${state}`, 'info');
+                    connected = state === ConnectionState.CONNECTED;
+                    
+                    if (connected) {
+                        joining = false;
+                        joinButton.style.display = "none";
+                        leaveButton.style.display = "inline-block";
+                        leaveButton.disabled = false;
+                        updateStatus('connectionStatus', '已連線', 'status-connected');
+                        
+                        startTime = Date.now();
+                        durationTimer = setInterval(updateDuration, 1000);
+                        statsTimer = setInterval(simulateStats, 2000);
+                        
+                        log('🎉 已成功連線到 Stage!', 'success');
+                        
+                        // 強制觸發發布
+                        setTimeout(() => {
+                            log('⚡ 觸發串流發布...', 'info');
+                            stage.refreshStrategy();
+                        }, 500);
+                    } else if (state === ConnectionState.DISCONNECTED) {
+                        updateStatus('connectionStatus', '已斷線', 'status-disconnected');
+                        updateStatus('publishStatus', '未發布', 'status-disconnected');
+                        log('⚠️ 已從 Stage 斷線', 'warning');
+                    }
+                });
+
+                stage.on(StageEvents.STAGE_PARTICIPANT_JOINED, (participant) => {
+                    if (!participant.isLocal) {
+                        participantCount++;
+                        log(`✓ 觀眾加入: ${participant.userId || participant.id}`, 'success');
+                    }
+                });
+
+                stage.on(StageEvents.STAGE_PARTICIPANT_LEFT, (participant) => {
+                    if (!participant.isLocal) {
+                        participantCount = Math.max(0, participantCount - 1);
+                        log(`👋 觀眾離開: ${participant.userId || participant.id}`, 'info');
+                    }
+                });
+
+                stage.on(StageEvents.STAGE_PARTICIPANT_STREAMS_ADDED, (participant, streams) => {
+                    log(`📹 串流已添加: ${streams.length} 個`, 'success');
+                    
+                    if (participant.isLocal) {
+                        updateStatus('publishStatus', '發布中', 'status-connected');
+                        log('🎊🎊🎊 本地串流已成功發布！', 'success');
+                        
+                        const videoStreams = streams.filter(s => s.streamType === StreamType.VIDEO);
+                        const videoEl = setupParticipant(participant);
+                        videoStreams.forEach(stream => 
+                            videoEl.srcObject.addTrack(stream.mediaStreamTrack)
+                        );
+                    }
+                });
+
+                stage.on(StageEvents.STAGE_STREAM_MUTE_CHANGED, (participant, stream) => {
+                    log(`🔇 串流靜音狀態變更: ${stream.isMuted}`, 'info');
+                });
+
+                // Join stage
+                log('🔗 正在加入 Stage...', 'info');
+                await stage.join();
+                log('✓ join() 呼叫成功，等待連線確認...', 'success');
+                
+            } catch (err) {
+                joining = false;
+                connected = false;
+                joinButton.disabled = false;
+                log(`❌ 錯誤: ${err.message}`, 'error');
+                console.error('詳細錯誤:', err);
+                alert(`連線失敗: ${err.message}\n\n請檢查:\n1. Token 是否正確\n2. Token 是否有 PUBLISH 權限\n3. 網路連線是否正常`);
+            }
+        };
+
+        const leaveStage = async () => {
+            log('👋 正在離開 Stage...', 'info');
+            
+            if (durationTimer) {
+                clearInterval(durationTimer);
+                durationTimer = null;
+            }
+            
+            if (statsTimer) {
+                clearInterval(statsTimer);
+                statsTimer = null;
+            }
+            
+            if (stage) {
+                stage.leave();
+            }
+            
+            if (localCamera) {
+                localCamera.getTracks().forEach(t => t.stop());
+            }
+            if (localMic) {
+                localMic.getTracks().forEach(t => t.stop());
+            }
+            
+            joining = false;
+            connected = false;
+            startTime = null;
+            participantCount = 0;
+            tokenExpiryTime = null;
+            stats = { packetsSent: 0, packetLoss: 0, rtt: 0, bitrate: 0 };
+            
+            updateStatus('connectionStatus', '已斷線', 'status-disconnected');
+            updateStatus('publishStatus', '未發布', 'status-disconnected');
+            updateStatus('tokenStatus', '未驗證', 'status-disconnected');
+            document.getElementById('duration').textContent = '00:00:00';
+            document.getElementById('local-media').innerHTML = '';
+            document.getElementById('video-stats').style.display = 'none';
+            
+            // 重置統計
+            document.getElementById('viewers-count').textContent = '0';
+            document.getElementById('packets-sent').textContent = '0';
+            document.getElementById('packet-loss').textContent = '0%';
+            document.getElementById('network-rtt').textContent = '0ms';
+            document.getElementById('quality-dot').className = 'quality-dot';
+            document.getElementById('quality-text').textContent = '未知';
+            
+            joinButton.style.display = "inline-block";
+            leaveButton.style.display = "none";
+            joinButton.disabled = false;
+            
+            log('✓ 已完全離開', 'success');
+        };
+
+        const init = async () => {
+            // 檢查瀏覽器支援
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('您的瀏覽器不支援 getUserMedia API，請使用 Chrome、Firefox 或 Safari 最新版本');
+                log('❌ 瀏覽器不支援', 'error');
+                return;
+            }
+
+            // 預先請求媒體權限
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                stream.getTracks().forEach(t => t.stop());
+                log('✓ 媒體權限檢查通過', 'success');
+            } catch (e) {
+                log('⚠️ 尚未獲得媒體權限，開始直播時會再次請求', 'warning');
+            }
+
+            joinButton.addEventListener("click", joinStage);
+            leaveButton.addEventListener("click", leaveStage);
+            
+            log('✅ 主播端增強版已就緒', 'success');
+            log('📦 SDK 版本: 1.29.0', 'info');
+            log('💡 提示: 請確保 Token 具有 PUBLISH 和 SUBSCRIBE 權限', 'info');
+        };
+
+        init();
+    </script>
+</body>
+</html>
