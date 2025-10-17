@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IVS Real-Time - 主播端</title>
-    <script src="https://web-broadcast.live-video.net/1.6.0/amazon-ivs-web-broadcast.js"></script>
+    <script src="https://web-broadcast.live-video.net/1.29.0/amazon-ivs-web-broadcast.js"></script>
     <style>
         * {
             margin: 0;
@@ -24,9 +24,6 @@
         h1 {
             color: #2ecc71;
             margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
         .back-btn {
             background: #34495e;
@@ -38,17 +35,11 @@
             margin-bottom: 20px;
             display: inline-block;
         }
-        .back-btn:hover {
-            background: #2c3e50;
-        }
         .control-panel {
             background: #2c3e50;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
         }
         label {
             display: block;
@@ -64,15 +55,11 @@
             background: #34495e;
             color: white;
             font-size: 14px;
-        }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #2ecc71;
+            margin-bottom: 15px;
         }
         .button-group {
             display: flex;
             gap: 10px;
-            margin-top: 15px;
         }
         button {
             flex: 1;
@@ -82,32 +69,27 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s;
         }
         .btn-start {
             background: #2ecc71;
             color: white;
         }
-        .btn-start:hover:not(:disabled) {
-            background: #27ae60;
-        }
         .btn-stop {
             background: #e74c3c;
             color: white;
-        }
-        .btn-stop:hover:not(:disabled) {
-            background: #c0392b;
         }
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
         .video-container {
-            position: relative;
             background: black;
             border-radius: 8px;
             overflow: hidden;
             aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         video {
             width: 100%;
@@ -123,44 +105,17 @@
         .status-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
             padding: 8px 0;
             border-bottom: 1px solid #2c3e50;
         }
         .status-item:last-child {
             border-bottom: none;
         }
-        .status-label {
-            color: #95a5a6;
-        }
-        .status-value {
-            font-weight: bold;
-        }
         .status-connected {
             color: #2ecc71;
         }
         .status-disconnected {
             color: #e74c3c;
-        }
-        .status-connecting {
-            color: #f39c12;
-        }
-        .alert {
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-        }
-        .alert-info {
-            background: #3498db;
-            color: white;
-        }
-        .alert-error {
-            background: #e74c3c;
-            color: white;
-        }
-        .alert-success {
-            background: #2ecc71;
-            color: white;
         }
         .logs {
             background: #1a1a1a;
@@ -173,15 +128,8 @@
             font-size: 12px;
             margin-top: 20px;
         }
-        .log-entry {
-            padding: 4px 0;
-            border-bottom: 1px solid #2c3e50;
-        }
         .log-time {
             color: #95a5a6;
-        }
-        .log-info {
-            color: #3498db;
         }
         .log-success {
             color: #2ecc71;
@@ -197,105 +145,75 @@
         
         <h1>📹 主播端控制台</h1>
         
-        <div id="alertContainer"></div>
-        
         <div class="control-panel">
-            <div class="form-group">
-                <label for="token">Stage Token (Publisher)</label>
-                <input type="text" id="token" placeholder="請貼上從 AWS CLI 生成的 Publisher Token (需要 PUBLISH,SUBSCRIBE 權限)">
-            </div>
+            <label for="token">Stage Token (Publisher)</label>
+            <input type="text" id="token" placeholder="請貼上 Publisher Token">
             
             <div class="button-group">
-                <button id="startBtn" class="btn-start" onclick="startBroadcast()">
-                    🎬 開始直播
-                </button>
-                <button id="stopBtn" class="btn-stop" onclick="stopBroadcast()" disabled>
-                    ⏹️ 停止直播
-                </button>
+                <button id="join-button" class="btn-start">🎬 開始直播</button>
+                <button id="leave-button" class="btn-stop" style="display:none;">⏹️ 停止直播</button>
             </div>
         </div>
         
-        <div class="video-container">
-            <video id="preview" autoplay muted playsinline></video>
-        </div>
+        <div id="local-media" class="video-container"></div>
         
         <div class="status-bar">
             <div class="status-item">
-                <span class="status-label">連線狀態</span>
-                <span id="connectionStatus" class="status-value status-disconnected">未連線</span>
+                <span>連線狀態</span>
+                <span id="connectionStatus" class="status-disconnected">未連線</span>
             </div>
             <div class="status-item">
-                <span class="status-label">攝像頭</span>
-                <span id="cameraStatus" class="status-value">未啟用</span>
+                <span>發布狀態</span>
+                <span id="publishStatus" class="status-disconnected">未發布</span>
             </div>
             <div class="status-item">
-                <span class="status-label">麥克風</span>
-                <span id="micStatus" class="status-value">未啟用</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">發布狀態</span>
-                <span id="publishStatus" class="status-value">未發布</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">直播時長</span>
-                <span id="duration" class="status-value">00:00:00</span>
+                <span>直播時長</span>
+                <span id="duration">00:00:00</span>
             </div>
         </div>
         
-        <div class="logs">
-            <div id="logs"></div>
-        </div>
+        <div class="logs" id="logs"></div>
     </div>
 
     <script>
-        const { Stage, LocalStageStream, SubscribeType, StageEvents, ConnectionState } = window.IVSBroadcastClient;
+        const { Stage, LocalStageStream, SubscribeType, StageEvents, ConnectionState, StreamType } = IVSBroadcastClient;
+
+        let joinButton = document.getElementById("join-button");
+        let leaveButton = document.getElementById("leave-button");
         
-        let stage = null;
-        let cameraStageStream = null;
-        let micStageStream = null;
-        let localCamera = null;
-        let localMic = null;
+        let stage;
+        let joining = false;
+        let connected = false;
+        let localCamera;
+        let localMic;
+        let cameraStageStream;
+        let micStageStream;
         let startTime = null;
         let durationTimer = null;
 
         function log(message, type = 'info') {
             const logsDiv = document.getElementById('logs');
             const time = new Date().toLocaleTimeString('zh-TW');
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry';
-            logEntry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
-            logsDiv.insertBefore(logEntry, logsDiv.firstChild);
-            console.log(`[${type.toUpperCase()}]`, message);
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            logsDiv.insertBefore(entry, logsDiv.firstChild);
+            console.log(`[${type}]`, message);
         }
 
-        function showAlert(message, type = 'info') {
-            const alertContainer = document.getElementById('alertContainer');
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
-            alertContainer.innerHTML = '';
-            alertContainer.appendChild(alert);
-            
-            setTimeout(() => {
-                alert.remove();
-            }, 5000);
-        }
-
-        function updateStatus(elementId, text, className = '') {
-            const element = document.getElementById(elementId);
-            element.textContent = text;
-            element.className = 'status-value ' + className;
+        function updateStatus(id, text, className) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = className;
         }
 
         function updateDuration() {
             if (startTime) {
                 const elapsed = Date.now() - startTime;
-                const hours = Math.floor(elapsed / 3600000);
-                const minutes = Math.floor((elapsed % 3600000) / 60000);
-                const seconds = Math.floor((elapsed % 60000) / 1000);
-                
-                const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                updateStatus('duration', formatted);
+                const h = Math.floor(elapsed / 3600000);
+                const m = Math.floor((elapsed % 3600000) / 60000);
+                const s = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('duration').textContent = 
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
             }
         }
 
@@ -303,8 +221,7 @@
             return navigator.mediaDevices.getUserMedia({
                 video: {
                     width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    frameRate: { ideal: 30 }
+                    height: { ideal: 720 }
                 },
                 audio: false
             });
@@ -313,205 +230,180 @@
         async function getMic() {
             return navigator.mediaDevices.getUserMedia({
                 video: false,
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                }
+                audio: true
             });
         }
 
-        async function startBroadcast() {
-            const token = document.getElementById('token').value.trim();
+        function setupParticipant({ isLocal, id }) {
+            const groupId = "local-media";
+            const groupContainer = document.getElementById(groupId);
+            groupContainer.innerHTML = ''; // Clear first
             
+            const videoEl = document.createElement("video");
+            videoEl.id = isLocal ? "local" : id;
+            videoEl.autoplay = true;
+            videoEl.muted = isLocal; // Mute local to avoid echo
+            videoEl.playsInline = true;
+            videoEl.srcObject = new MediaStream();
+            videoEl.style.width = '100%';
+            videoEl.style.height = '100%';
+            
+            groupContainer.appendChild(videoEl);
+            return videoEl;
+        }
+
+        const joinStage = async () => {
+            if (connected || joining) {
+                return;
+            }
+            
+            joining = true;
+            log('開始連接...', 'info');
+            
+            const token = document.getElementById("token").value;
             if (!token) {
-                showAlert('請輸入 Stage Token！', 'error');
-                log('錯誤：未提供 Token', 'error');
+                alert("請輸入 Token");
+                joining = false;
                 return;
             }
 
             try {
-                log('開始初始化直播...', 'info');
-                document.getElementById('startBtn').disabled = true;
-                updateStatus('connectionStatus', '連線中...', 'status-connecting');
-
-                // 獲取攝像頭和麥克風
-                log('請求媒體裝置權限...', 'info');
+                // Get media
+                log('請求媒體權限...', 'info');
                 localCamera = await getCamera();
                 localMic = await getMic();
-                
-                log('✓ 已獲得媒體裝置權限', 'success');
-                
-                // 預覽本地視頻
-                const preview = document.getElementById('preview');
-                preview.srcObject = new MediaStream([
-                    localCamera.getVideoTracks()[0],
-                    localMic.getAudioTracks()[0]
-                ]);
-                
-                updateStatus('cameraStatus', '已啟用', 'status-connected');
-                updateStatus('micStatus', '已啟用', 'status-connected');
+                log('✓ 已獲得媒體權限', 'success');
 
-                // 建立 LocalStageStream
-                log('建立 Stage Stream...', 'info');
+                // Create StageStreams
                 cameraStageStream = new LocalStageStream(localCamera.getVideoTracks()[0]);
                 micStageStream = new LocalStageStream(localMic.getAudioTracks()[0]);
-                log('✓ Stage Stream 已建立', 'success');
+                log('✓ 已建立 LocalStageStream', 'success');
 
-                // 定義 Strategy
+                // Define strategy
                 const strategy = {
                     stageStreamsToPublish() {
-                        log('SDK 請求要發布的串流...', 'info');
+                        log('→ SDK 呼叫 stageStreamsToPublish', 'info');
                         return [cameraStageStream, micStageStream];
                     },
-                    shouldPublishParticipant(participant) {
-                        log(`SDK 詢問是否發布參與者: ${participant.userId}`, 'info');
+                    shouldPublishParticipant() {
+                        log('→ SDK 呼叫 shouldPublishParticipant', 'info');
                         return true;
                     },
-                    shouldSubscribeToParticipant(participant) {
+                    shouldSubscribeToParticipant() {
                         return SubscribeType.AUDIO_VIDEO;
                     }
                 };
 
-                // 建立 Stage
-                log('建立 Stage 連接...', 'info');
+                // Create stage
                 stage = new Stage(token, strategy);
+                log('✓ 已建立 Stage', 'success');
 
-                // 監聽連接狀態
+                // Setup event listeners
                 stage.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
-                    log(`連線狀態: ${state}`, 'info');
+                    log(`連線狀態變更: ${state}`, 'info');
+                    connected = state === ConnectionState.CONNECTED;
                     
-                    if (state === ConnectionState.CONNECTED) {
+                    if (connected) {
+                        joining = false;
+                        joinButton.style.display = "none";
+                        leaveButton.style.display = "inline-block";
                         updateStatus('connectionStatus', '已連線', 'status-connected');
-                        showAlert('✓ 已連接到 Stage！', 'success');
-                        document.getElementById('stopBtn').disabled = false;
                         
-                        // 開始計時
                         startTime = Date.now();
                         durationTimer = setInterval(updateDuration, 1000);
-                    } else if (state === ConnectionState.DISCONNECTED) {
-                        updateStatus('connectionStatus', '已斷線', 'status-disconnected');
-                        updateStatus('publishStatus', '未發布');
+                        log('✓ 已連線到 Stage', 'success');
                     }
                 });
 
-                // 監聽參與者
-                stage.on(StageEvents.STAGE_PARTICIPANT_JOINED, (participant) => {
-                    log(`✓ 參與者加入: ${participant.userId}`, 'success');
-                });
-
-                // 監聽串流添加
                 stage.on(StageEvents.STAGE_PARTICIPANT_STREAMS_ADDED, (participant, streams) => {
-                    log(`✓ 串流已添加: ${participant.userId} (${streams.length} 個串流)`, 'success');
+                    log(`✓ 串流已添加: ${participant.userId} (${streams.length} 個)`, 'success');
                     
+                    let streamsToDisplay = streams;
                     if (participant.isLocal) {
                         updateStatus('publishStatus', '發布中', 'status-connected');
-                        showAlert('✓ 你的串流已成功發布！觀眾現在可以看到你了 🎉', 'success');
-                        log('✓ 本地串流已成功發布！', 'success');
+                        log('✓✓✓ 本地串流已成功發布！', 'success');
+                        
+                        // Exclude local audio to avoid echo
+                        streamsToDisplay = streams.filter(
+                            (stream) => stream.streamType === StreamType.VIDEO
+                        );
                     }
+
+                    const videoEl = setupParticipant(participant);
+                    streamsToDisplay.forEach((stream) => 
+                        videoEl.srcObject.addTrack(stream.mediaStreamTrack)
+                    );
                 });
 
-                // 監聽錯誤
-                stage.on(StageEvents.STAGE_STREAM_ERROR, (error) => {
-                    log(`❌ 串流錯誤: ${error.message}`, 'error');
-                    showAlert(`串流錯誤: ${error.message}`, 'error');
+                stage.on(StageEvents.STAGE_PARTICIPANT_LEFT, (participant) => {
+                    log(`參與者離開: ${participant.userId}`, 'info');
                 });
 
-                // 加入 Stage
+                // Join!
                 log('加入 Stage...', 'info');
                 await stage.join();
-                log('✓ 成功加入 Stage，等待發布串流...', 'success');
+                log('✓ join() 成功，等待連線...', 'success');
                 
-            } catch (error) {
-                log(`❌ 錯誤: ${error.message}`, 'error');
-                showAlert(`發生錯誤: ${error.message}`, 'error');
-                console.error('Broadcasting error:', error);
-                console.error('Error stack:', error.stack);
-                
-                // 清理
-                if (localCamera) {
-                    localCamera.getTracks().forEach(track => track.stop());
-                    localCamera = null;
-                }
-                if (localMic) {
-                    localMic.getTracks().forEach(track => track.stop());
-                    localMic = null;
-                }
-                
-                document.getElementById('startBtn').disabled = false;
-                updateStatus('connectionStatus', '連線失敗', 'status-disconnected');
-                updateStatus('cameraStatus', '未啟用');
-                updateStatus('micStatus', '未啟用');
-                updateStatus('publishStatus', '未發布');
+            } catch (err) {
+                joining = false;
+                connected = false;
+                log(`❌ 錯誤: ${err.message}`, 'error');
+                console.error(err);
+                alert(`錯誤: ${err.message}`);
             }
-        }
+        };
 
-        async function stopBroadcast() {
+        const leaveStage = async () => {
+            log('離開 Stage...', 'info');
+            
+            if (durationTimer) {
+                clearInterval(durationTimer);
+                durationTimer = null;
+            }
+            
+            stage.leave();
+            
+            if (localCamera) {
+                localCamera.getTracks().forEach(t => t.stop());
+            }
+            if (localMic) {
+                localMic.getTracks().forEach(t => t.stop());
+            }
+            
+            joining = false;
+            connected = false;
+            startTime = null;
+            
+            updateStatus('connectionStatus', '已斷線', 'status-disconnected');
+            updateStatus('publishStatus', '未發布', 'status-disconnected');
+            document.getElementById('duration').textContent = '00:00:00';
+            document.getElementById('local-media').innerHTML = '';
+            
+            log('✓ 已離開', 'success');
+        };
+
+        const init = async () => {
             try {
-                log('正在停止直播...', 'info');
-                
-                // 停止計時
-                if (durationTimer) {
-                    clearInterval(durationTimer);
-                    durationTimer = null;
-                }
-                startTime = null;
-                
-                // 離開 Stage
-                if (stage) {
-                    await stage.leave();
-                    stage = null;
-                    log('✓ 已離開 Stage', 'success');
-                }
-                
-                // 清理串流
-                cameraStageStream = null;
-                micStageStream = null;
-                
-                // 停止媒體串流
-                if (localCamera) {
-                    localCamera.getTracks().forEach(track => track.stop());
-                    localCamera = null;
-                }
-                if (localMic) {
-                    localMic.getTracks().forEach(track => track.stop());
-                    localMic = null;
-                }
-                log('✓ 已停止媒體裝置', 'success');
-                
-                // 清空預覽
-                const preview = document.getElementById('preview');
-                preview.srcObject = null;
-                
-                // 更新狀態
-                updateStatus('connectionStatus', '已斷線', 'status-disconnected');
-                updateStatus('cameraStatus', '未啟用');
-                updateStatus('micStatus', '未啟用');
-                updateStatus('publishStatus', '未發布');
-                updateStatus('duration', '00:00:00');
-                
-                document.getElementById('startBtn').disabled = false;
-                document.getElementById('stopBtn').disabled = true;
-                
-                showAlert('✓ 直播已停止', 'info');
-                log('✓ 直播已成功停止', 'success');
-                
-            } catch (error) {
-                log(`❌ 停止直播時發生錯誤: ${error.message}`, 'error');
-                console.error('Stop error:', error);
+                await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            } catch (e) {
+                alert("無法獲取媒體權限！請允許攝像頭和麥克風權限。");
             }
-        }
 
-        // 頁面關閉時清理
-        window.addEventListener('beforeunload', () => {
-            if (stage || localCamera || localMic) {
-                stopBroadcast();
-            }
-        });
+            joinButton.addEventListener("click", () => {
+                joinStage();
+            });
 
-        // 初始化
-        log('主播端已就緒', 'info');
-        log('請輸入 Token 並開始直播', 'info');
+            leaveButton.addEventListener("click", () => {
+                leaveStage();
+                joinButton.style.display = "inline-block";
+                leaveButton.style.display = "none";
+            });
+            
+            log('主播端已就緒', 'success');
+            log('SDK 版本: 1.29.0', 'info');
+        };
+
+        init();
     </script>
 </body>
 </html>

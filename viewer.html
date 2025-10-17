@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IVS Real-Time - 觀眾端</title>
-    <script src="https://web-broadcast.live-video.net/1.6.0/amazon-ivs-web-broadcast.js"></script>
+    <script src="https://web-broadcast.live-video.net/1.29.0/amazon-ivs-web-broadcast.js"></script>
     <style>
         * {
             margin: 0;
@@ -24,9 +24,6 @@
         h1 {
             color: #3498db;
             margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
         .back-btn {
             background: #34495e;
@@ -38,17 +35,11 @@
             margin-bottom: 20px;
             display: inline-block;
         }
-        .back-btn:hover {
-            background: #2c3e50;
-        }
         .control-panel {
             background: #2c3e50;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
         }
         label {
             display: block;
@@ -64,15 +55,11 @@
             background: #34495e;
             color: white;
             font-size: 14px;
-        }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #3498db;
+            margin-bottom: 15px;
         }
         .button-group {
             display: flex;
             gap: 10px;
-            margin-top: 15px;
         }
         button {
             flex: 1;
@@ -82,49 +69,35 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s;
         }
         .btn-start {
             background: #3498db;
             color: white;
         }
-        .btn-start:hover:not(:disabled) {
-            background: #2980b9;
-        }
         .btn-stop {
             background: #e74c3c;
             color: white;
-        }
-        .btn-stop:hover:not(:disabled) {
-            background: #c0392b;
         }
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
-        .video-container {
-            position: relative;
+        #remote-media {
             background: black;
             border-radius: 8px;
-            overflow: hidden;
-            aspect-ratio: 16/9;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .no-stream {
+            color: #95a5a6;
+            text-align: center;
         }
         video {
             width: 100%;
             height: 100%;
             object-fit: contain;
-        }
-        .no-stream {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #95a5a6;
-        }
-        .no-stream-icon {
-            font-size: 64px;
-            margin-bottom: 10px;
         }
         .status-bar {
             background: #34495e;
@@ -135,48 +108,17 @@
         .status-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
             padding: 8px 0;
             border-bottom: 1px solid #2c3e50;
         }
         .status-item:last-child {
             border-bottom: none;
         }
-        .status-label {
-            color: #95a5a6;
-        }
-        .status-value {
-            font-weight: bold;
-        }
         .status-connected {
             color: #2ecc71;
         }
         .status-disconnected {
             color: #e74c3c;
-        }
-        .status-connecting {
-            color: #f39c12;
-        }
-        .alert {
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-        }
-        .alert-info {
-            background: #3498db;
-            color: white;
-        }
-        .alert-error {
-            background: #e74c3c;
-            color: white;
-        }
-        .alert-success {
-            background: #2ecc71;
-            color: white;
-        }
-        .alert-warning {
-            background: #f39c12;
-            color: white;
         }
         .logs {
             background: #1a1a1a;
@@ -189,15 +131,8 @@
             font-size: 12px;
             margin-top: 20px;
         }
-        .log-entry {
-            padding: 4px 0;
-            border-bottom: 1px solid #2c3e50;
-        }
         .log-time {
             color: #95a5a6;
-        }
-        .log-info {
-            color: #3498db;
         }
         .log-success {
             color: #2ecc71;
@@ -205,18 +140,9 @@
         .log-error {
             color: #e74c3c;
         }
-        .log-warning {
-            color: #f39c12;
-        }
-        .participants-list {
-            margin-top: 10px;
-        }
-        .participant-item {
-            background: #2c3e50;
-            padding: 8px;
-            margin: 5px 0;
-            border-radius: 4px;
-            font-size: 14px;
+        .participant-container {
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
@@ -226,263 +152,281 @@
         
         <h1>👀 觀眾端</h1>
         
-        <div id="alertContainer"></div>
-        
         <div class="control-panel">
-            <div class="form-group">
-                <label for="token">Stage Token (Viewer)</label>
-                <input type="text" id="token" placeholder="請貼上從 AWS CLI 生成的 Viewer Token (只需要 SUBSCRIBE 權限)">
-            </div>
+            <label for="token">Stage Token (Viewer)</label>
+            <input type="text" id="token" placeholder="請貼上 Viewer Token">
             
             <div class="button-group">
-                <button id="startBtn" class="btn-start" onclick="startViewing()">
-                    ▶️ 開始觀看
-                </button>
-                <button id="stopBtn" class="btn-stop" onclick="stopViewing()" disabled>
-                    ⏹️ 停止觀看
-                </button>
+                <button id="join-button" class="btn-start">▶️ 開始觀看</button>
+                <button id="leave-button" class="btn-stop" style="display:none;">⏹️ 停止觀看</button>
             </div>
         </div>
         
-        <div class="video-container">
-            <video id="remoteVideo" autoplay playsinline controls></video>
-            <div id="noStream" class="no-stream">
-                <div class="no-stream-icon">📺</div>
+        <div id="remote-media">
+            <div class="no-stream">
+                <div style="font-size: 48px;">📺</div>
                 <div>等待主播開始直播...</div>
             </div>
         </div>
         
         <div class="status-bar">
             <div class="status-item">
-                <span class="status-label">連線狀態</span>
-                <span id="connectionStatus" class="status-value status-disconnected">未連線</span>
+                <span>連線狀態</span>
+                <span id="connectionStatus" class="status-disconnected">未連線</span>
             </div>
             <div class="status-item">
-                <span class="status-label">視頻狀態</span>
-                <span id="videoStatus" class="status-value">無串流</span>
+                <span>視頻狀態</span>
+                <span id="videoStatus" class="status-disconnected">無串流</span>
             </div>
             <div class="status-item">
-                <span class="status-label">觀看時長</span>
-                <span id="duration" class="status-value">00:00:00</span>
+                <span>觀看時長</span>
+                <span id="duration">00:00:00</span>
             </div>
             <div class="status-item">
-                <span class="status-label">在線參與者</span>
-                <span id="participantCount" class="status-value">0</span>
+                <span>在線參與者</span>
+                <span id="participantCount">0</span>
             </div>
         </div>
         
-        <div class="logs">
-            <div id="logs"></div>
-        </div>
+        <div class="logs" id="logs"></div>
     </div>
 
     <script>
-        const IVSBroadcastClient = window.IVSBroadcastClient;
-        let stage = null;
+        const { Stage, SubscribeType, StageEvents, ConnectionState, StreamType } = IVSBroadcastClient;
+
+        let joinButton = document.getElementById("join-button");
+        let leaveButton = document.getElementById("leave-button");
+        
+        let stage;
+        let joining = false;
+        let connected = false;
+        let participantCount = 0;
         let startTime = null;
         let durationTimer = null;
-        let participants = new Map();
 
         function log(message, type = 'info') {
             const logsDiv = document.getElementById('logs');
             const time = new Date().toLocaleTimeString('zh-TW');
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry';
-            logEntry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
-            logsDiv.insertBefore(logEntry, logsDiv.firstChild);
-            console.log(`[${type.toUpperCase()}]`, message);
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            logsDiv.insertBefore(entry, logsDiv.firstChild);
+            console.log(`[${type}]`, message);
         }
 
-        function showAlert(message, type = 'info') {
-            const alertContainer = document.getElementById('alertContainer');
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
-            alertContainer.innerHTML = '';
-            alertContainer.appendChild(alert);
-            
-            setTimeout(() => {
-                alert.remove();
-            }, 5000);
-        }
-
-        function updateStatus(elementId, text, className = '') {
-            const element = document.getElementById(elementId);
-            element.textContent = text;
-            element.className = 'status-value ' + className;
+        function updateStatus(id, text, className) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = className;
         }
 
         function updateDuration() {
             if (startTime) {
                 const elapsed = Date.now() - startTime;
-                const hours = Math.floor(elapsed / 3600000);
-                const minutes = Math.floor((elapsed % 3600000) / 60000);
-                const seconds = Math.floor((elapsed % 60000) / 1000);
-                
-                const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                updateStatus('duration', formatted);
+                const h = Math.floor(elapsed / 3600000);
+                const m = Math.floor((elapsed % 3600000) / 60000);
+                const s = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('duration').textContent = 
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
             }
         }
 
-        async function startViewing() {
-            const token = document.getElementById('token').value.trim();
+        function setupParticipant({ isLocal, id }) {
+            const groupId = "remote-media";
+            const groupContainer = document.getElementById(groupId);
             
+            const participantContainerId = isLocal ? "local" : id;
+            
+            // Check if already exists
+            let participantContainer = document.getElementById(participantContainerId + "-container");
+            if (participantContainer) {
+                return participantContainer.querySelector('video');
+            }
+            
+            // Clear "no stream" message if exists
+            if (groupContainer.querySelector('.no-stream')) {
+                groupContainer.innerHTML = '';
+            }
+            
+            participantContainer = document.createElement("div");
+            participantContainer.classList = "participant-container";
+            participantContainer.id = participantContainerId + "-container";
+            
+            const videoEl = document.createElement("video");
+            videoEl.id = participantContainerId;
+            videoEl.autoplay = true;
+            videoEl.playsInline = true;
+            videoEl.controls = true;
+            videoEl.srcObject = new MediaStream();
+            videoEl.style.width = '100%';
+            videoEl.style.height = '100%';
+            
+            participantContainer.appendChild(videoEl);
+            groupContainer.appendChild(participantContainer);
+            
+            return videoEl;
+        }
+
+        function teardownParticipant({ isLocal, id }) {
+            const participantContainerId = isLocal ? "local" : id;
+            const participantDiv = document.getElementById(participantContainerId + "-container");
+            
+            if (participantDiv) {
+                participantDiv.remove();
+            }
+            
+            // If no more participants, show "no stream" message
+            const groupContainer = document.getElementById("remote-media");
+            if (!groupContainer.querySelector('.participant-container')) {
+                groupContainer.innerHTML = `
+                    <div class="no-stream">
+                        <div style="font-size: 48px;">📺</div>
+                        <div>等待主播開始直播...</div>
+                    </div>
+                `;
+                updateStatus('videoStatus', '無串流', 'status-disconnected');
+            }
+        }
+
+        const joinStage = async () => {
+            if (connected || joining) {
+                return;
+            }
+            
+            joining = true;
+            log('開始連接...', 'info');
+            
+            const token = document.getElementById("token").value;
             if (!token) {
-                showAlert('請輸入 Stage Token！', 'error');
-                log('錯誤：未提供 Token', 'error');
+                alert("請輸入 Token");
+                joining = false;
                 return;
             }
 
             try {
-                log('開始連接直播間...', 'info');
-                document.getElementById('startBtn').disabled = true;
-                updateStatus('connectionStatus', '連線中...', 'status-connecting');
+                // Define strategy - viewer only subscribes
+                const strategy = {
+                    stageStreamsToPublish() {
+                        return []; // Viewer doesn't publish
+                    },
+                    shouldPublishParticipant() {
+                        return false; // Viewer doesn't publish
+                    },
+                    shouldSubscribeToParticipant() {
+                        return SubscribeType.AUDIO_VIDEO; // Subscribe to all
+                    }
+                };
 
-                // 連接到 Stage（只訂閱）
-                stage = new IVSBroadcastClient.Stage(token, {
-                    strategy: IVSBroadcastClient.SubscribeType.AUDIO_VIDEO
-                });
+                // Create stage
+                stage = new Stage(token, strategy);
+                log('✓ 已建立 Stage', 'success');
 
-                // 監聽連接狀態
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
-                    log(`連線狀態: ${state}`, 'info');
+                // Setup event listeners
+                stage.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
+                    log(`連線狀態變更: ${state}`, 'info');
+                    connected = state === ConnectionState.CONNECTED;
                     
-                    if (state === IVSBroadcastClient.ConnectionState.CONNECTED) {
+                    if (connected) {
+                        joining = false;
+                        joinButton.style.display = "none";
+                        leaveButton.style.display = "inline-block";
                         updateStatus('connectionStatus', '已連線', 'status-connected');
-                        showAlert('✓ 已連接到直播間！', 'success');
-                        document.getElementById('stopBtn').disabled = false;
                         
-                        // 開始計時
                         startTime = Date.now();
                         durationTimer = setInterval(updateDuration, 1000);
-                    } else if (state === IVSBroadcastClient.ConnectionState.DISCONNECTED) {
+                        log('✓ 已連線到 Stage', 'success');
+                    } else if (state === ConnectionState.DISCONNECTED) {
                         updateStatus('connectionStatus', '已斷線', 'status-disconnected');
                     }
                 });
 
-                // 監聽參與者加入
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_PARTICIPANT_JOINED, (participant) => {
+                stage.on(StageEvents.STAGE_PARTICIPANT_JOINED, (participant) => {
+                    participantCount++;
+                    document.getElementById('participantCount').textContent = participantCount;
                     log(`✓ 參與者加入: ${participant.userId}`, 'success');
-                    participants.set(participant.userId, participant);
-                    updateStatus('participantCount', participants.size.toString());
                 });
 
-                // 監聽參與者離開
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_PARTICIPANT_LEFT, (participant) => {
-                    log(`參與者離開: ${participant.userId}`, 'warning');
-                    participants.delete(participant.userId);
-                    updateStatus('participantCount', participants.size.toString());
+                stage.on(StageEvents.STAGE_PARTICIPANT_LEFT, (participant) => {
+                    participantCount--;
+                    document.getElementById('participantCount').textContent = participantCount;
+                    log(`參與者離開: ${participant.userId}`, 'info');
+                    teardownParticipant(participant);
                 });
 
-                // 監聽串流變化
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_PARTICIPANT_STREAMS_CHANGED, (participant, streams) => {
-                    log(`串流更新: ${participant.userId} (${streams.length} 串流)`, 'info');
+                stage.on(StageEvents.STAGE_PARTICIPANT_STREAMS_ADDED, (participant, streams) => {
+                    log(`✓ 收到串流: ${participant.userId} (${streams.length} 個)`, 'success');
                     
-                    if (streams.length > 0) {
-                        // 建立 MediaStream
-                        const mediaStream = new MediaStream();
-                        
-                        streams.forEach(stream => {
-                            if (stream.mediaStreamTrack) {
-                                mediaStream.addTrack(stream.mediaStreamTrack);
-                                log(`✓ 添加 ${stream.streamType} 軌道`, 'success');
-                            }
-                        });
-                        
-                        // 設定到 video 元素
-                        const remoteVideo = document.getElementById('remoteVideo');
-                        remoteVideo.srcObject = mediaStream;
-                        
-                        // 隱藏無串流提示
-                        document.getElementById('noStream').style.display = 'none';
-                        updateStatus('videoStatus', '播放中', 'status-connected');
-                        showAlert('✓ 收到直播串流！', 'success');
-                        
-                        // 自動播放
-                        remoteVideo.play().catch(err => {
-                            log(`自動播放失敗: ${err.message}`, 'warning');
-                            showAlert('請手動點擊播放按鈕', 'warning');
-                        });
-                    } else {
-                        document.getElementById('noStream').style.display = 'flex';
-                        updateStatus('videoStatus', '無串流', 'status-disconnected');
-                    }
+                    const videoEl = setupParticipant(participant);
+                    
+                    streams.forEach((stream) => {
+                        videoEl.srcObject.addTrack(stream.mediaStreamTrack);
+                        log(`  → 添加 ${stream.streamType} 軌道`, 'success');
+                    });
+                    
+                    updateStatus('videoStatus', '播放中', 'status-connected');
+                    log('✓✓✓ 開始播放視頻！', 'success');
                 });
 
-                // 監聽發布狀態變化
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_PARTICIPANT_PUBLISH_STATE_CHANGED, (participant, state) => {
-                    log(`發布狀態變化: ${participant.userId} - ${state}`, 'info');
-                });
-
-                // 加入 Stage
+                // Join!
+                log('加入 Stage...', 'info');
                 await stage.join();
-                log('✓ 成功加入 Stage', 'success');
+                log('✓ join() 成功，等待連線...', 'success');
                 
-            } catch (error) {
-                log(`❌ 錯誤: ${error.message}`, 'error');
-                showAlert(`發生錯誤: ${error.message}`, 'error');
-                console.error('Viewing error:', error);
-                
-                document.getElementById('startBtn').disabled = false;
-                updateStatus('connectionStatus', '連線失敗', 'status-disconnected');
+            } catch (err) {
+                joining = false;
+                connected = false;
+                log(`❌ 錯誤: ${err.message}`, 'error');
+                console.error(err);
+                alert(`錯誤: ${err.message}`);
             }
-        }
+        };
 
-        async function stopViewing() {
-            try {
-                log('正在停止觀看...', 'info');
-                
-                // 停止計時
-                if (durationTimer) {
-                    clearInterval(durationTimer);
-                    durationTimer = null;
-                }
-                startTime = null;
-                
-                // 離開 Stage
-                if (stage) {
-                    await stage.leave();
-                    stage = null;
-                    log('✓ 已離開 Stage', 'success');
-                }
-                
-                // 清空視頻
-                const remoteVideo = document.getElementById('remoteVideo');
-                remoteVideo.srcObject = null;
-                
-                // 顯示無串流提示
-                document.getElementById('noStream').style.display = 'flex';
-                
-                // 清空參與者列表
-                participants.clear();
-                
-                // 更新狀態
-                updateStatus('connectionStatus', '已斷線', 'status-disconnected');
-                updateStatus('videoStatus', '無串流');
-                updateStatus('duration', '00:00:00');
-                updateStatus('participantCount', '0');
-                
-                document.getElementById('startBtn').disabled = false;
-                document.getElementById('stopBtn').disabled = true;
-                
-                showAlert('✓ 已停止觀看', 'info');
-                log('✓ 已成功停止觀看', 'success');
-                
-            } catch (error) {
-                log(`❌ 停止觀看時發生錯誤: ${error.message}`, 'error');
-                console.error('Stop error:', error);
+        const leaveStage = async () => {
+            log('離開 Stage...', 'info');
+            
+            if (durationTimer) {
+                clearInterval(durationTimer);
+                durationTimer = null;
             }
-        }
+            
+            stage.leave();
+            
+            joining = false;
+            connected = false;
+            startTime = null;
+            participantCount = 0;
+            
+            updateStatus('connectionStatus', '已斷線', 'status-disconnected');
+            updateStatus('videoStatus', '無串流', 'status-disconnected');
+            document.getElementById('duration').textContent = '00:00:00';
+            document.getElementById('participantCount').textContent = '0';
+            
+            const remoteMedia = document.getElementById('remote-media');
+            remoteMedia.innerHTML = `
+                <div class="no-stream">
+                    <div style="font-size: 48px;">📺</div>
+                    <div>等待主播開始直播...</div>
+                </div>
+            `;
+            
+            log('✓ 已離開', 'success');
+        };
 
-        // 頁面關閉時清理
-        window.addEventListener('beforeunload', () => {
-            if (stage) {
-                stopViewing();
-            }
-        });
+        const init = async () => {
+            joinButton.addEventListener("click", () => {
+                joinStage();
+            });
 
-        // 初始化日誌
-        log('觀眾端已就緒，請輸入 Token 並開始觀看', 'info');
+            leaveButton.addEventListener("click", () => {
+                leaveStage();
+                joinButton.style.display = "inline-block";
+                leaveButton.style.display = "none";
+            });
+            
+            log('觀眾端已就緒', 'success');
+            log('SDK 版本: 1.29.0', 'info');
+        };
+
+        init();
     </script>
 </body>
 </html>
