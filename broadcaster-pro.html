@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IVS Real-Time - 主播端 (專業版)</title>
+    <script src="https://web-broadcast.live-video.net/1.29.0/amazon-ivs-web-broadcast.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2ecc71;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            background: #34495e;
+            color: white;
+            padding: 8px 15px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+        .layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .control-panel {
+            background: #2c3e50;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .section-title {
+            color: #3498db;
+            font-size: 14px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ecf0f1;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #34495e;
+            border-radius: 4px;
+            background: #34495e;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-prepare {
+            background: #3498db;
+            color: white;
+        }
+        .btn-prepare:hover:not(:disabled) {
+            background: #2980b9;
+        }
+        .btn-join {
+            background: #9b59b6;
+            color: white;
+        }
+        .btn-join:hover:not(:disabled) {
+            background: #8e44ad;
+        }
+        .btn-start {
+            background: #2ecc71;
+            color: white;
+        }
+        .btn-start:hover:not(:disabled) {
+            background: #27ae60;
+        }
+        .btn-stop {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-stop:hover:not(:disabled) {
+            background: #c0392b;
+        }
+        .btn-leave {
+            background: #95a5a6;
+            color: white;
+        }
+        .btn-leave:hover:not(:disabled) {
+            background: #7f8c8d;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .video-container {
+            background: black;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border: 2px solid #34495e;
+        }
+        .video-container.preview {
+            border-color: #3498db;
+        }
+        .video-container.publishing {
+            border-color: #2ecc71;
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .no-preview {
+            text-align: center;
+            color: #7f8c8d;
+        }
+        .no-preview-icon {
+            font-size: 64px;
+            margin-bottom: 10px;
+        }
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        .live-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #e74c3c;
+            padding: 5px 15px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 14px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .status-bar {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #2c3e50;
+        }
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        .status-label {
+            color: #95a5a6;
+        }
+        .status-connected {
+            color: #2ecc71;
+        }
+        .status-disconnected {
+            color: #e74c3c;
+        }
+        .status-warning {
+            color: #f39c12;
+        }
+        .status-info {
+            color: #3498db;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .stat-card {
+            background: #2c3e50;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 5px;
+        }
+        .logs {
+            background: #1a1a1a;
+            border: 1px solid #34495e;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 250px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .log-time {
+            color: #95a5a6;
+        }
+        .log-success {
+            color: #2ecc71;
+        }
+        .log-error {
+            color: #e74c3c;
+        }
+        .log-warning {
+            color: #f39c12;
+        }
+        .log-info {
+            color: #3498db;
+        }
+        
+        @media (max-width: 1024px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-btn">← 返回首頁</a>
+        
+        <h1>📹 主播端控制台 (專業版)</h1>
+        
+        <div class="layout">
+            <div class="main-content">
+                <div class="control-panel">
+                    <label for="token">Stage Token (Publisher)</label>
+                    <input type="text" id="token" placeholder="請貼上具有 PUBLISH 權限的 Token">
+                    
+                    <div class="section-title">直播控制</div>
+                    <div class="button-group">
+                        <button id="prepare-button" class="btn-prepare">📷 準備攝像頭</button>
+                        <button id="join-button" class="btn-join" disabled>🔗 加入 Stage</button>
+                        <button id="publish-button" class="btn-start" disabled>🎬 開始推流</button>
+                    </div>
+                    <div class="button-group" style="margin-top: 10px;">
+                        <button id="stop-button" class="btn-stop" disabled>⏹️ 停止推流</button>
+                        <button id="leave-button" class="btn-leave" disabled>👋 離開 Stage</button>
+                    </div>
+                </div>
+                
+                <div id="video-container" class="video-container">
+                    <div class="no-preview">
+                        <div class="no-preview-icon">📹</div>
+                        <div>點擊「準備攝像頭」開始預覽</div>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="viewers-count">0</div>
+                        <div class="stat-label">觀看人數</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="duration">00:00:00</div>
+                        <div class="stat-label">推流時長</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="bitrate">0 kbps</div>
+                        <div class="stat-label">當前位元率</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="resolution">-</div>
+                        <div class="stat-label">視頻解析度</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="status-bar">
+                    <div class="status-item">
+                        <span class="status-label">攝像頭狀態</span>
+                        <span id="cameraStatus" class="status-disconnected">未就緒</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Stage 連線</span>
+                        <span id="stageStatus" class="status-disconnected">未連線</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">推流狀態</span>
+                        <span id="publishStatus" class="status-disconnected">未推流</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">在線參與者</span>
+                        <span id="participantCount">0</span>
+                    </div>
+                </div>
+                
+                <div class="logs" id="logs">
+                    <div class="log-info">✅ 系統就緒</div>
+                    <div class="log-info">💡 步驟 1: 準備攝像頭</div>
+                    <div class="log-info">💡 步驟 2: 加入 Stage</div>
+                    <div class="log-info">💡 步驟 3: 開始推流</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { Stage, LocalStageStream, SubscribeType, StageEvents, ConnectionState, StreamType } = IVSBroadcastClient;
+
+        // 按鈕
+        const prepareButton = document.getElementById("prepare-button");
+        const joinButton = document.getElementById("join-button");
+        const publishButton = document.getElementById("publish-button");
+        const stopButton = document.getElementById("stop-button");
+        const leaveButton = document.getElementById("leave-button");
+        
+        // 狀態
+        let stage;
+        let localCamera;
+        let localMic;
+        let cameraStageStream;
+        let micStageStream;
+        let localVideoElement;
+        let participantCount = 0;
+        let startTime = null;
+        let durationTimer = null;
+        
+        // 狀態標記
+        let isCameraReady = false;
+        let isStageJoined = false;
+        let shouldPublish = false;  // 控制是否發布的標記
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString('zh-TW');
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            logsDiv.insertBefore(entry, logsDiv.firstChild);
+            
+            while (logsDiv.children.length > 50) {
+                logsDiv.removeChild(logsDiv.lastChild);
+            }
+            
+            console.log(`[${type}]`, message);
+        }
+
+        function updateStatus(id, text, className) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = text;
+                el.className = className;
+            }
+        }
+
+        function updateDuration() {
+            if (startTime) {
+                const elapsed = Date.now() - startTime;
+                const h = Math.floor(elapsed / 3600000);
+                const m = Math.floor((elapsed % 3600000) / 60000);
+                const s = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('duration').textContent = 
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            }
+        }
+
+        function updateButtonStates() {
+            prepareButton.disabled = isCameraReady;
+            joinButton.disabled = !isCameraReady || isStageJoined;
+            publishButton.disabled = !isStageJoined || shouldPublish;
+            stopButton.disabled = !shouldPublish;
+            leaveButton.disabled = !isStageJoined || shouldPublish;
+        }
+
+        // 步驟 1: 準備攝像頭
+        async function prepareCamera() {
+            log('📷 正在啟動攝像頭和麥克風...', 'info');
+            prepareButton.disabled = true;
+            
+            try {
+                // 獲取攝像頭
+                localCamera = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: false
+                });
+                log('✓ 攝像頭已就緒', 'success');
+                
+                // 獲取麥克風
+                localMic = await navigator.mediaDevices.getUserMedia({
+                    video: false,
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+                log('✓ 麥克風已就緒', 'success');
+                
+                // 顯示本地預覽
+                const container = document.getElementById('video-container');
+                container.innerHTML = '';
+                container.classList.add('preview');
+                
+                localVideoElement = document.createElement('video');
+                localVideoElement.id = 'local-preview';
+                localVideoElement.autoplay = true;
+                localVideoElement.muted = true;
+                localVideoElement.playsInline = true;
+                localVideoElement.srcObject = localCamera;
+                
+                container.appendChild(localVideoElement);
+                
+                // 顯示視頻資訊
+                localVideoElement.addEventListener('loadedmetadata', () => {
+                    const resolution = `${localVideoElement.videoWidth}x${localVideoElement.videoHeight}`;
+                    document.getElementById('resolution').textContent = resolution;
+                    log(`✓ 視頻解析度: ${resolution}`, 'success');
+                });
+                
+                isCameraReady = true;
+                updateStatus('cameraStatus', '已就緒 (預覽中)', 'status-info');
+                log('✅ 攝像頭準備完成，可以加入 Stage', 'success');
+                
+                updateButtonStates();
+                
+            } catch (err) {
+                log(`❌ 無法獲取媒體設備: ${err.message}`, 'error');
+                alert(`無法獲取攝像頭/麥克風:\n${err.message}\n\n請確保:\n1. 已允許瀏覽器存取權限\n2. 設備未被其他程式占用`);
+                prepareButton.disabled = false;
+            }
+        }
+
+        // 步驟 2: 加入 Stage
+        async function joinStage() {
+            const token = document.getElementById("token").value.trim();
+            if (!token) {
+                alert("請先輸入 Token");
+                return;
+            }
+            
+            log('🔗 正在連接 Stage...', 'info');
+            joinButton.disabled = true;
+            
+            try {
+                // 創建 StageStreams
+                cameraStageStream = new LocalStageStream(localCamera.getVideoTracks()[0]);
+                micStageStream = new LocalStageStream(localMic.getAudioTracks()[0]);
+                log('✓ 已建立 LocalStageStream', 'success');
+                
+                // 定義動態策略
+                const strategy = {
+                    stageStreamsToPublish: () => {
+                        // 根據 shouldPublish 標記決定是否發布
+                        if (shouldPublish) {
+                            log('→ Strategy: 返回媒體流進行發布', 'info');
+                            return [cameraStageStream, micStageStream];
+                        } else {
+                            log('→ Strategy: 不發布任何流', 'info');
+                            return [];
+                        }
+                    },
+                    shouldPublishParticipant: () => {
+                        return shouldPublish;
+                    },
+                    shouldSubscribeToParticipant: () => {
+                        return SubscribeType.AUDIO_VIDEO;
+                    }
+                };
+                
+                // 創建 Stage
+                stage = new Stage(token, strategy);
+                log('✓ 已建立 Stage 實例', 'success');
+                
+                // 設定事件監聽
+                stage.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
+                    log(`📡 連線狀態: ${state}`, 'info');
+                    
+                    if (state === ConnectionState.CONNECTED) {
+                        isStageJoined = true;
+                        updateStatus('stageStatus', '已連線', 'status-connected');
+                        log('✅ 已成功連線到 Stage！', 'success');
+                        log('💡 現在可以開始推流', 'info');
+                        updateButtonStates();
+                    } else if (state === ConnectionState.DISCONNECTED) {
+                        isStageJoined = false;
+                        shouldPublish = false;
+                        updateStatus('stageStatus', '已斷線', 'status-disconnected');
+                        updateButtonStates();
+                    }
+                });
+                
+                stage.on(StageEvents.STAGE_PARTICIPANT_JOINED, (participant) => {
+                    if (!participant.isLocal) {
+                        participantCount++;
+                        document.getElementById('participantCount').textContent = participantCount;
+                        log(`✓ 觀眾加入: ${participant.userId || participant.id}`, 'success');
+                    }
+                });
+                
+                stage.on(StageEvents.STAGE_PARTICIPANT_LEFT, (participant) => {
+                    if (!participant.isLocal) {
+                        participantCount = Math.max(0, participantCount - 1);
+                        document.getElementById('participantCount').textContent = participantCount;
+                        log(`👋 觀眾離開: ${participant.userId || participant.id}`, 'info');
+                    }
+                });
+                
+                stage.on(StageEvents.STAGE_PARTICIPANT_STREAMS_ADDED, (participant, streams) => {
+                    if (participant.isLocal) {
+                        log(`🎉 本地串流已發布: ${streams.length} 個`, 'success');
+                        updateStatus('publishStatus', '推流中', 'status-connected');
+                        updateStatus('cameraStatus', '發布中', 'status-connected');
+                    }
+                });
+                
+                // 加入 Stage
+                await stage.join();
+                log('✓ 正在等待連線確認...', 'info');
+                
+            } catch (err) {
+                log(`❌ 加入 Stage 失敗: ${err.message}`, 'error');
+                alert(`加入 Stage 失敗:\n${err.message}`);
+                joinButton.disabled = false;
+            }
+        }
+
+        // 步驟 3: 開始推流
+        async function startPublishing() {
+            log('🎬 開始推流...', 'info');
+            publishButton.disabled = true;
+            
+            try {
+                // 設定發布標記
+                shouldPublish = true;
+                
+                // 觸發策略重新評估
+                stage.refreshStrategy();
+                log('✓ 已觸發推流策略', 'success');
+                
+                startTime = Date.now();
+                durationTimer = setInterval(updateDuration, 1000);
+                
+                const container = document.getElementById('video-container');
+                container.classList.remove('preview');
+                container.classList.add('publishing');
+                
+                // 添加 LIVE 標籤
+                const liveBadge = document.createElement('div');
+                liveBadge.className = 'live-badge';
+                liveBadge.id = 'live-badge';
+                liveBadge.textContent = '🔴 LIVE';
+                container.appendChild(liveBadge);
+                
+                log('✅ 推流已開始！觀眾現在可以看到您的直播', 'success');
+                updateButtonStates();
+                
+            } catch (err) {
+                log(`❌ 開始推流失敗: ${err.message}`, 'error');
+                shouldPublish = false;
+                publishButton.disabled = false;
+            }
+        }
+
+        // 停止推流
+        function stopPublishing() {
+            log('⏹️ 停止推流...', 'info');
+            
+            try {
+                // 取消發布標記
+                shouldPublish = false;
+                
+                // 觸發策略重新評估
+                stage.refreshStrategy();
+                log('✓ 已停止推流策略', 'success');
+                
+                if (durationTimer) {
+                    clearInterval(durationTimer);
+                    durationTimer = null;
+                }
+                
+                const container = document.getElementById('video-container');
+                container.classList.remove('publishing');
+                container.classList.add('preview');
+                const liveBadge = document.getElementById('live-badge');
+                if (liveBadge) liveBadge.remove();
+                
+                updateStatus('publishStatus', '未推流', 'status-disconnected');
+                updateStatus('cameraStatus', '已就緒 (預覽中)', 'status-info');
+                document.getElementById('duration').textContent = '00:00:00';
+                
+                log('✓ 推流已停止，但仍連線在 Stage', 'success');
+                updateButtonStates();
+                
+            } catch (err) {
+                log(`❌ 停止推流失敗: ${err.message}`, 'error');
+            }
+        }
+
+        // 離開 Stage
+        function leaveStage() {
+            log('👋 正在離開 Stage...', 'info');
+            
+            if (stage) {
+                stage.leave();
+            }
+            
+            isStageJoined = false;
+            shouldPublish = false;
+            participantCount = 0;
+            
+            if (durationTimer) {
+                clearInterval(durationTimer);
+                durationTimer = null;
+            }
+            
+            updateStatus('stageStatus', '已斷線', 'status-disconnected');
+            updateStatus('publishStatus', '未推流', 'status-disconnected');
+            updateStatus('cameraStatus', '已就緒 (預覽中)', 'status-info');
+            document.getElementById('participantCount').textContent = '0';
+            document.getElementById('duration').textContent = '00:00:00';
+            
+            const container = document.getElementById('video-container');
+            container.classList.remove('publishing');
+            container.classList.add('preview');
+            const liveBadge = document.getElementById('live-badge');
+            if (liveBadge) liveBadge.remove();
+            
+            log('✓ 已離開 Stage', 'success');
+            log('💡 攝像頭仍在預覽中，可以重新加入', 'info');
+            updateButtonStates();
+        }
+
+        // 事件監聽
+        prepareButton.addEventListener("click", prepareCamera);
+        joinButton.addEventListener("click", joinStage);
+        publishButton.addEventListener("click", startPublishing);
+        stopButton.addEventListener("click", stopPublishing);
+        leaveButton.addEventListener("click", leaveStage);
+
+        // 初始化
+        log('🚀 主播端專業版已載入', 'success');
+        log('📦 SDK 版本: 1.29.0', 'info');
+        log('', 'info');
+        log('📋 使用流程:', 'info');
+        log('1️⃣ 點擊「準備攝像頭」→ 顯示本地預覽', 'info');
+        log('2️⃣ 點擊「加入 Stage」→ 連接但不推流', 'info');
+        log('3️⃣ 點擊「開始推流」→ 開始直播', 'info');
+        log('4️⃣ 點擊「停止推流」→ 停止但保持連線', 'info');
+        log('5️⃣ 點擊「離開 Stage」→ 完全斷開', 'info');
+        updateButtonStates();
+    </script>
+</body>
+</html>
