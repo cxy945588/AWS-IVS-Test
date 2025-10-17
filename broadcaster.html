@@ -137,6 +137,9 @@
         .log-error {
             color: #e74c3c;
         }
+        .log-warning {
+            color: #f39c12;
+        }
     </style>
 </head>
 <body>
@@ -237,12 +240,12 @@
         function setupParticipant({ isLocal, id }) {
             const groupId = "local-media";
             const groupContainer = document.getElementById(groupId);
-            groupContainer.innerHTML = ''; // Clear first
+            groupContainer.innerHTML = '';
             
             const videoEl = document.createElement("video");
             videoEl.id = isLocal ? "local" : id;
             videoEl.autoplay = true;
-            videoEl.muted = isLocal; // Mute local to avoid echo
+            videoEl.muted = isLocal;
             videoEl.playsInline = true;
             videoEl.srcObject = new MediaStream();
             videoEl.style.width = '100%';
@@ -285,11 +288,11 @@
                         log('→ SDK 呼叫 stageStreamsToPublish', 'info');
                         return [cameraStageStream, micStageStream];
                     },
-                    shouldPublishParticipant() {
-                        log('→ SDK 呼叫 shouldPublishParticipant', 'info');
+                    shouldPublishParticipant(participant) {
+                        log(`→ SDK 呼叫 shouldPublishParticipant: ${participant?.isLocal ? 'local' : 'remote'}`, 'info');
                         return true;
                     },
-                    shouldSubscribeToParticipant() {
+                    shouldSubscribeToParticipant(participant) {
                         return SubscribeType.AUDIO_VIDEO;
                     }
                 };
@@ -312,6 +315,12 @@
                         startTime = Date.now();
                         durationTimer = setInterval(updateDuration, 1000);
                         log('✓ 已連線到 Stage', 'success');
+                        
+                        // ⭐ CRITICAL: 連線成功後手動觸發發布
+                        setTimeout(() => {
+                            log('⚡ 觸發 refreshStrategy 強制發布...', 'warning');
+                            stage.refreshStrategy();
+                        }, 500);
                     }
                 });
 
@@ -321,9 +330,8 @@
                     let streamsToDisplay = streams;
                     if (participant.isLocal) {
                         updateStatus('publishStatus', '發布中', 'status-connected');
-                        log('✓✓✓ 本地串流已成功發布！', 'success');
+                        log('🎉🎉🎉 本地串流已成功發布！', 'success');
                         
-                        // Exclude local audio to avoid echo
                         streamsToDisplay = streams.filter(
                             (stream) => stream.streamType === StreamType.VIDEO
                         );
