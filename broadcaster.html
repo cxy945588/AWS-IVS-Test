@@ -248,10 +248,11 @@
     </div>
 
     <script>
-        const IVSBroadcastClient = window.IVSBroadcastClient;
+        const { Stage, LocalStageStream, SubscribeType, StageEvents, ConnectionState, StreamType } = window.IVSBroadcastClient;
+        
         let stage = null;
-        let localCamera = null;
-        let localMic = null;
+        let cameraStream = null;
+        let micStream = null;
         let mediaStream = null;
         let startTime = null;
         let durationTimer = null;
@@ -316,7 +317,8 @@
                 mediaStream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 30 }
                     },
                     audio: {
                         echoCancellation: true,
@@ -335,16 +337,16 @@
                 updateStatus('micStatus', '已啟用', 'status-connected');
 
                 // 建立 Stage
-                log('建立 Stage 實例...', 'info');
-                stage = new IVSBroadcastClient.Stage(token, {
-                    strategy: IVSBroadcastClient.SubscribeType.AUDIO_VIDEO
+                log('建立 Stage 連接...', 'info');
+                stage = new Stage(token, {
+                    strategy: SubscribeType.AUDIO_VIDEO
                 });
 
                 // 監聽連接狀態
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
+                stage.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
                     log(`連線狀態: ${state}`, 'info');
                     
-                    if (state === IVSBroadcastClient.ConnectionState.CONNECTED) {
+                    if (state === ConnectionState.CONNECTED) {
                         updateStatus('connectionStatus', '已連線', 'status-connected');
                         showAlert('✓ 已連接到 Stage！', 'success');
                         document.getElementById('stopBtn').disabled = false;
@@ -352,36 +354,24 @@
                         // 開始計時
                         startTime = Date.now();
                         durationTimer = setInterval(updateDuration, 1000);
-                    } else if (state === IVSBroadcastClient.ConnectionState.DISCONNECTED) {
+                    } else if (state === ConnectionState.DISCONNECTED) {
                         updateStatus('connectionStatus', '已斷線', 'status-disconnected');
                         updateStatus('publishStatus', '未發布');
                     }
                 });
 
-                // 監聽參與者加入
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_PARTICIPANT_JOINED, (participant) => {
+                // 監聽參與者
+                stage.on(StageEvents.STAGE_PARTICIPANT_JOINED, (participant) => {
                     log(`✓ 參與者加入: ${participant.userId}`, 'success');
                 });
 
-                // 監聽本地參與者發布狀態
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_PARTICIPANT_PUBLISH_STATE_CHANGED, (participant, state) => {
-                    log(`發布狀態變化: ${participant.userId} - ${state}`, 'info');
-                    
+                // 監聽本地串流發布狀態
+                stage.on(StageEvents.STAGE_PARTICIPANT_STREAMS_ADDED, (participant, streams) => {
+                    log(`✓ 串流已添加: ${participant.userId} (${streams.length} 個)`, 'success');
                     if (participant.isLocal) {
-                        if (state === IVSBroadcastClient.PublishState.PUBLISHED) {
-                            updateStatus('publishStatus', '發布中', 'status-connected');
-                            log('✓ 本地串流已發布', 'success');
-                        } else if (state === IVSBroadcastClient.PublishState.NOT_PUBLISHED) {
-                            updateStatus('publishStatus', '未發布', 'status-disconnected');
-                        } else if (state === IVSBroadcastClient.PublishState.ATTEMPTING_PUBLISH) {
-                            updateStatus('publishStatus', '發布中...', 'status-connecting');
-                        }
+                        updateStatus('publishStatus', '發布中', 'status-connected');
+                        showAlert('✓ 你的串流已發布！觀眾現在可以看到你', 'success');
                     }
-                });
-
-                // 監聽錯誤
-                stage.on(IVSBroadcastClient.StageEvents.STAGE_STREAM_ERROR, (error) => {
-                    log(`❌ 串流錯誤: ${error.message}`, 'error');
                 });
 
                 // 加入 Stage
@@ -389,38 +379,30 @@
                 await stage.join();
                 log('✓ 成功加入 Stage', 'success');
 
-                // 建立本地串流並發布
-                log('建立本地媒體串流...', 'info');
-                
+                // 等待一下確保連接穩定
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // 建立並發布視頻串流
+                log('準備發布視頻串流...', 'info');
                 const videoTrack = mediaStream.getVideoTracks()[0];
+                cameraStream = new LocalStageStream(videoTrack);
+                
+                await stage.refreshStrategy();
+                log('✓ 視頻串流準備就緒', 'success');
+
+                // 建立並發布音頻串流
+                log('準備發布音頻串流...', 'info');
                 const audioTrack = mediaStream.getAudioTracks()[0];
-
-                // 建立 LocalStageStream
-                localCamera = new IVSBroadcastClient.LocalStageStream(
-                    videoTrack,
-                    IVSBroadcastClient.StageStreamType.VIDEO
-                );
+                micStream = new LocalStageStream(audioTrack);
                 
-                localMic = new IVSBroadcastClient.LocalStageStream(
-                    audioTrack,
-                    IVSBroadcastClient.StageStreamType.AUDIO
-                );
-
-                log('發布視頻串流...', 'info');
-                await stage.publish(localCamera);
-                log('✓ 視頻串流已發布', 'success');
-                
-                log('發布音頻串流...', 'info');
-                await stage.publish(localMic);
-                log('✓ 音頻串流已發布', 'success');
-
-                showAlert('✓ 直播已開始！觀眾現在可以看到你了', 'success');
+                log('✓ 音頻串流準備就緒', 'success');
                 log('✓ 直播啟動成功！', 'success');
                 
             } catch (error) {
                 log(`❌ 錯誤: ${error.message}`, 'error');
                 showAlert(`發生錯誤: ${error.message}`, 'error');
                 console.error('Broadcasting error:', error);
+                console.error('Error stack:', error.stack);
                 
                 // 清理
                 if (mediaStream) {
@@ -447,25 +429,6 @@
                 }
                 startTime = null;
                 
-                // 停止發布串流
-                if (stage && localCamera) {
-                    try {
-                        await stage.unpublish(localCamera);
-                        log('✓ 已停止視頻發布', 'success');
-                    } catch (e) {
-                        log(`停止視頻發布時出錯: ${e.message}`, 'error');
-                    }
-                }
-                
-                if (stage && localMic) {
-                    try {
-                        await stage.unpublish(localMic);
-                        log('✓ 已停止音頻發布', 'success');
-                    } catch (e) {
-                        log(`停止音頻發布時出錯: ${e.message}`, 'error');
-                    }
-                }
-                
                 // 離開 Stage
                 if (stage) {
                     await stage.leave();
@@ -473,9 +436,9 @@
                     log('✓ 已離開 Stage', 'success');
                 }
                 
-                // 清理本地串流
-                localCamera = null;
-                localMic = null;
+                // 清理串流
+                cameraStream = null;
+                micStream = null;
                 
                 // 停止媒體串流
                 if (mediaStream) {
@@ -514,9 +477,22 @@
             }
         });
 
-        // 初始化日誌
-        log('主播端已就緒，請輸入 Token 並開始直播', 'info');
-        log(`使用 IVS Broadcast SDK 版本: ${IVSBroadcastClient.version || 'unknown'}`, 'info');
+        // 初始化
+        log('主播端已就緒', 'info');
+        log('SDK 版本: ' + (window.IVSBroadcastClient.version || 'unknown'), 'info');
+        
+        // 檢查 API 可用性
+        if (typeof Stage !== 'undefined') {
+            log('✓ Stage API 可用', 'success');
+        } else {
+            log('❌ Stage API 不可用', 'error');
+        }
+        
+        if (typeof LocalStageStream !== 'undefined') {
+            log('✓ LocalStageStream API 可用', 'success');
+        } else {
+            log('❌ LocalStageStream API 不可用', 'error');
+        }
     </script>
 </body>
 </html>
