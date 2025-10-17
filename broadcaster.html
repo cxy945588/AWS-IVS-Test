@@ -248,12 +248,13 @@
     </div>
 
     <script>
-        const { Stage, LocalStageStream, SubscribeType, StageEvents, ConnectionState, StreamType } = window.IVSBroadcastClient;
+        const { Stage, LocalStageStream, SubscribeType, StageEvents, ConnectionState } = window.IVSBroadcastClient;
         
         let stage = null;
-        let cameraStream = null;
-        let micStream = null;
-        let mediaStream = null;
+        let cameraStageStream = null;
+        let micStageStream = null;
+        let localCamera = null;
+        let localMic = null;
         let startTime = null;
         let durationTimer = null;
 
@@ -298,6 +299,28 @@
             }
         }
 
+        async function getCamera() {
+            return navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 }
+                },
+                audio: false
+            });
+        }
+
+        async function getMic() {
+            return navigator.mediaDevices.getUserMedia({
+                video: false,
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
+            });
+        }
+
         async function startBroadcast() {
             const token = document.getElementById('token').value.trim();
             
@@ -314,33 +337,45 @@
 
                 // 獲取攝像頭和麥克風
                 log('請求媒體裝置權限...', 'info');
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        frameRate: { ideal: 30 }
-                    },
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
-                });
-
+                localCamera = await getCamera();
+                localMic = await getMic();
+                
                 log('✓ 已獲得媒體裝置權限', 'success');
                 
                 // 預覽本地視頻
                 const preview = document.getElementById('preview');
-                preview.srcObject = mediaStream;
+                preview.srcObject = new MediaStream([
+                    localCamera.getVideoTracks()[0],
+                    localMic.getAudioTracks()[0]
+                ]);
                 
                 updateStatus('cameraStatus', '已啟用', 'status-connected');
                 updateStatus('micStatus', '已啟用', 'status-connected');
 
+                // 建立 LocalStageStream
+                log('建立 Stage Stream...', 'info');
+                cameraStageStream = new LocalStageStream(localCamera.getVideoTracks()[0]);
+                micStageStream = new LocalStageStream(localMic.getAudioTracks()[0]);
+                log('✓ Stage Stream 已建立', 'success');
+
+                // 定義 Strategy
+                const strategy = {
+                    stageStreamsToPublish() {
+                        log('SDK 請求要發布的串流...', 'info');
+                        return [cameraStageStream, micStageStream];
+                    },
+                    shouldPublishParticipant(participant) {
+                        log(`SDK 詢問是否發布參與者: ${participant.userId}`, 'info');
+                        return true;
+                    },
+                    shouldSubscribeToParticipant(participant) {
+                        return SubscribeType.AUDIO_VIDEO;
+                    }
+                };
+
                 // 建立 Stage
                 log('建立 Stage 連接...', 'info');
-                stage = new Stage(token, {
-                    strategy: SubscribeType.AUDIO_VIDEO
-                });
+                stage = new Stage(token, strategy);
 
                 // 監聽連接狀態
                 stage.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
@@ -365,38 +400,27 @@
                     log(`✓ 參與者加入: ${participant.userId}`, 'success');
                 });
 
-                // 監聽本地串流發布狀態
+                // 監聽串流添加
                 stage.on(StageEvents.STAGE_PARTICIPANT_STREAMS_ADDED, (participant, streams) => {
-                    log(`✓ 串流已添加: ${participant.userId} (${streams.length} 個)`, 'success');
+                    log(`✓ 串流已添加: ${participant.userId} (${streams.length} 個串流)`, 'success');
+                    
                     if (participant.isLocal) {
                         updateStatus('publishStatus', '發布中', 'status-connected');
-                        showAlert('✓ 你的串流已發布！觀眾現在可以看到你', 'success');
+                        showAlert('✓ 你的串流已成功發布！觀眾現在可以看到你了 🎉', 'success');
+                        log('✓ 本地串流已成功發布！', 'success');
                     }
+                });
+
+                // 監聽錯誤
+                stage.on(StageEvents.STAGE_STREAM_ERROR, (error) => {
+                    log(`❌ 串流錯誤: ${error.message}`, 'error');
+                    showAlert(`串流錯誤: ${error.message}`, 'error');
                 });
 
                 // 加入 Stage
                 log('加入 Stage...', 'info');
                 await stage.join();
-                log('✓ 成功加入 Stage', 'success');
-
-                // 等待一下確保連接穩定
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                // 建立並發布視頻串流
-                log('準備發布視頻串流...', 'info');
-                const videoTrack = mediaStream.getVideoTracks()[0];
-                cameraStream = new LocalStageStream(videoTrack);
-                
-                await stage.refreshStrategy();
-                log('✓ 視頻串流準備就緒', 'success');
-
-                // 建立並發布音頻串流
-                log('準備發布音頻串流...', 'info');
-                const audioTrack = mediaStream.getAudioTracks()[0];
-                micStream = new LocalStageStream(audioTrack);
-                
-                log('✓ 音頻串流準備就緒', 'success');
-                log('✓ 直播啟動成功！', 'success');
+                log('✓ 成功加入 Stage，等待發布串流...', 'success');
                 
             } catch (error) {
                 log(`❌ 錯誤: ${error.message}`, 'error');
@@ -405,9 +429,13 @@
                 console.error('Error stack:', error.stack);
                 
                 // 清理
-                if (mediaStream) {
-                    mediaStream.getTracks().forEach(track => track.stop());
-                    mediaStream = null;
+                if (localCamera) {
+                    localCamera.getTracks().forEach(track => track.stop());
+                    localCamera = null;
+                }
+                if (localMic) {
+                    localMic.getTracks().forEach(track => track.stop());
+                    localMic = null;
                 }
                 
                 document.getElementById('startBtn').disabled = false;
@@ -437,15 +465,19 @@
                 }
                 
                 // 清理串流
-                cameraStream = null;
-                micStream = null;
+                cameraStageStream = null;
+                micStageStream = null;
                 
                 // 停止媒體串流
-                if (mediaStream) {
-                    mediaStream.getTracks().forEach(track => track.stop());
-                    mediaStream = null;
-                    log('✓ 已停止媒體裝置', 'success');
+                if (localCamera) {
+                    localCamera.getTracks().forEach(track => track.stop());
+                    localCamera = null;
                 }
+                if (localMic) {
+                    localMic.getTracks().forEach(track => track.stop());
+                    localMic = null;
+                }
+                log('✓ 已停止媒體裝置', 'success');
                 
                 // 清空預覽
                 const preview = document.getElementById('preview');
@@ -472,27 +504,14 @@
 
         // 頁面關閉時清理
         window.addEventListener('beforeunload', () => {
-            if (stage || mediaStream) {
+            if (stage || localCamera || localMic) {
                 stopBroadcast();
             }
         });
 
         // 初始化
         log('主播端已就緒', 'info');
-        log('SDK 版本: ' + (window.IVSBroadcastClient.version || 'unknown'), 'info');
-        
-        // 檢查 API 可用性
-        if (typeof Stage !== 'undefined') {
-            log('✓ Stage API 可用', 'success');
-        } else {
-            log('❌ Stage API 不可用', 'error');
-        }
-        
-        if (typeof LocalStageStream !== 'undefined') {
-            log('✓ LocalStageStream API 可用', 'success');
-        } else {
-            log('❌ LocalStageStream API 不可用', 'error');
-        }
+        log('請輸入 Token 並開始直播', 'info');
     </script>
 </body>
 </html>
