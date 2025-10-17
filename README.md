@@ -2,6 +2,10 @@
 
 這是一個使用 **Amazon IVS Web Broadcast SDK** 實現的即時多人視訊串流測試應用程式。
 
+## 🌐 線上 Demo
+
+部署在 GitHub Pages: `https://你的GitHub用戶名.github.io/AWS-IVS/`
+
 ## 🚀 功能特點
 
 - ✅ 低延遲串流 (< 300ms)
@@ -16,7 +20,7 @@
 - npm 或 yarn
 - AWS 帳號(用於創建 IVS Stage)
 
-## 🛠️ 安裝步驟
+## 🛠️ 本地開發
 
 1. 安裝依賴套件:
 ```bash
@@ -29,6 +33,52 @@ npm run dev
 ```
 
 3. 在瀏覽器中打開 [http://localhost:3000](http://localhost:3000)
+
+## 🚢 部署到 GitHub Pages
+
+### 方法一: 自動部署 (推薦)
+
+這個專案已配置 GitHub Actions 自動部署。只需:
+
+1. **推送代碼到 GitHub**:
+```bash
+git add .
+git commit -m "Initial commit"
+git push origin main
+```
+
+2. **在 GitHub 啟用 Pages**:
+   - 前往你的 repository 設定
+   - 點擊左側 **"Pages"**
+   - 在 **"Build and deployment"** 下:
+     - Source: 選擇 **"GitHub Actions"**
+   - 等待部署完成 (約 1-2 分鐘)
+
+3. **訪問你的網站**:
+   - `https://你的GitHub用戶名.github.io/AWS-IVS/`
+
+### 方法二: 手動部署
+
+```bash
+# 建置靜態檔案
+npm run build
+
+# 部署到 GitHub Pages
+# 確保 gh-pages 分支已創建
+git add out/
+git commit -m "Deploy to GitHub Pages"
+git subtree push --prefix out origin gh-pages
+```
+
+### 重要設定
+
+在部署前,請確認 `next.config.js` 中的 `basePath`:
+
+```javascript
+basePath: '/AWS-IVS', // 改成你的 repository 名稱
+```
+
+如果你的 repository 名稱不是 `AWS-IVS`,請修改這個值。
 
 ## 📝 使用說明
 
@@ -78,6 +128,9 @@ npm run dev
 
 ```
 AWS-IVS/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml           # GitHub Actions 自動部署
 ├── src/
 │   └── app/
 │       ├── components/          # React 組件
@@ -94,14 +147,16 @@ AWS-IVS/
 │       ├── page.js              # 主頁面
 │       └── globals.css          # 全域樣式
 ├── package.json
+├── next.config.js               # Next.js 配置 (含 GitHub Pages 設定)
 └── README.md
 ```
 
 ## 🔧 核心技術
 
-- **Next.js 14**: React 框架
+- **Next.js 14**: React 框架 (靜態導出模式)
 - **Amazon IVS Web Broadcast SDK**: 即時串流 SDK
 - **Milligram CSS**: 輕量級 CSS 框架
+- **GitHub Actions**: 自動化部署
 
 ## 📚 關鍵概念
 
@@ -124,6 +179,7 @@ AWS-IVS/
 2. **瀏覽器相容性**: 建議使用最新版的 Chrome、Firefox 或 Safari
 3. **網路需求**: 需要穩定的網路連線以獲得最佳體驗
 4. **設備權限**: 首次使用需要授予攝影機和麥克風權限
+5. **HTTPS 需求**: GitHub Pages 自動提供 HTTPS,符合媒體訪問要求
 
 ## 🐛 常見問題
 
@@ -145,11 +201,18 @@ A: 可能原因:
 - 設備效能不足
 - 距離 AWS 區域較遠
 
+### Q: GitHub Pages 部署失敗?
+A: 請檢查:
+- `next.config.js` 中的 `basePath` 是否與 repository 名稱一致
+- GitHub Actions 是否有執行權限
+- 是否已在 repository 設定中啟用 Pages
+
 ## 📖 參考資源
 
 - [Amazon IVS 官方文檔](https://docs.aws.amazon.com/ivs/)
 - [Web Broadcast SDK 參考](https://aws.github.io/amazon-ivs-web-broadcast/docs/)
 - [GitHub 範例專案](https://github.com/aws-samples/amazon-ivs-realtime-web-demo-reactjs)
+- [Next.js Static Export](https://nextjs.org/docs/app/building-your-application/deploying/static-exports)
 
 ## 📄 授權
 
@@ -157,5 +220,5 @@ MIT License
 
 ---
 
-**開發者**: 基於 AWS 官方範例修改
+**開發者**: 基於 AWS 官方範例修改  
 **最後更新**: 2025-10-18
